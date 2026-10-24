@@ -53,9 +53,14 @@ check("several story, include, no optional -> menu", Logic.decide(h, INC), nil)
 h = hub({ {}, { questImportant = true }, { questImportant = true } })
 check("include optional before a decision", Logic.decide(h, INC), 1)
 
--- only checks among story lines, pick first falls back to first story line
+-- one plain line among lifepath/check story lines: pick first takes the plain one
+h = hub({ { questImportant = true, checkSuccess = true }, { questImportant = true, blueline = true }, { questImportant = true } })
+check("pick first skips to the only plain story", Logic.decide(h, SKIP_FIRST), 3)
+
+-- only checks/lifepath among story lines: pick first leaves the menu to the player
 h = hub({ { questImportant = true, checkSuccess = true }, { questImportant = true, blueline = true } })
-check("pick first with no plain story", Logic.decide(h, SKIP_FIRST), 1)
+check("pick first with no plain story -> menu", Logic.decide(h, SKIP_FIRST), nil)
+check("pick first with no plain story -> reason", select(2, Logic.decide(h, SKIP_FIRST)), "several story lines, none plain")
 
 -- money and illegal lines always leave the menu to the player
 h = hub({ { questImportant = true, pay = true }, {} })
