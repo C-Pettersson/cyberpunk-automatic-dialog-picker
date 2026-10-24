@@ -1,0 +1,64 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  helper:
+    name: Check AutoHotkey helper
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate helper with AutoHotkey v2
+        shell: pwsh
+        run: |
+          Invoke-WebRequest https://www.autohotkey.com/download/ahk-v2.zip -OutFile ahk.zip
+          Expand-Archive ahk.zip -DestinationPath ahk
+          $exe = Get-ChildItem ahk -Recurse -Filter AutoHotkey64.exe | Select-Object -First 1
+          if (-not $exe) { throw "AutoHotkey64.exe not found in the download" }
+          $script = "bin\x64\plugins\cyber_engine_tweaks\mods\AutoDialogPicker\AutoDialogPicker-Helper.ahk"
+          $p = Start-Process -FilePath $exe.FullName `
+                 -ArgumentList '/ErrorStdOut', '/validate', $script `
+                 -Wait -PassThru -NoNewWindow -RedirectStandardOutput ahk-out.txt -RedirectStandardError ahk-err.txt
+          Get-Content ahk-out.txt, ahk-err.txt
+          if ($p.ExitCode -ne 0) { throw "AutoHotkey reported errors (exit code $($p.ExitCode))" }
+
+  build:
+    name: Test and package
+    needs: helper
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install LuaJIT
+        run: sudo apt-get update && sudo apt-get install -y luajit zip
+
+      - name: Test and package
+        run: ./scripts/build.sh
+        env:
+          TAG: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || '' }}
+
+      - name: Upload build
+        uses: actions/upload-artifact@v4
+        with:
+          name: AutoDialogPicker
+          path: dist/*.zip
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/*.zip \
+            --title "Auto Dialog Picker $GITHUB_REF_NAME" \
+            --notes-file dist/release-notes.md

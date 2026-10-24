@@ -1,0 +1,6 @@
+dist/
+# files the mod and helper write at runtime
+cmd.txt
+helper_alive.txt
+settings.json
+*.log
