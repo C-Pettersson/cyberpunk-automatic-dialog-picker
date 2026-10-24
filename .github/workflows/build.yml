@@ -19,8 +19,14 @@ jobs:
 
       - name: Validate helper with AutoHotkey v2
         shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # autohotkey.com sits behind a Cloudflare challenge that blocks CI,
+          # so take the release zip from GitHub instead
+          AHK_VERSION: "2.0.30"
         run: |
-          Invoke-WebRequest https://www.autohotkey.com/download/ahk-v2.zip -OutFile ahk.zip
+          gh release download "v$env:AHK_VERSION" --repo AutoHotkey/AutoHotkey `
+            --pattern "AutoHotkey_$env:AHK_VERSION.zip" --output ahk.zip
           Expand-Archive ahk.zip -DestinationPath ahk
           $exe = Get-ChildItem ahk -Recurse -Filter AutoHotkey64.exe | Select-Object -First 1
           if (-not $exe) { throw "AutoHotkey64.exe not found in the download" }
