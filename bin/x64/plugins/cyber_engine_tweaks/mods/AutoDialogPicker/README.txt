@@ -15,7 +15,8 @@ When a dialogue menu appears, the mod waits a moment and then picks a line:
 
 The menu is left to you when:
   - there are several yellow story lines (a real decision), unless you set
-    "Several story lines" to "Pick the first plain story line"
+    "Several story lines" to "Pick the first plain story line" and one of
+    them is plain (not a lifepath or skill-check line)
   - a line costs money or is marked illegal
   - only already-read lines, actions ([Trade], [Sit]...) or special lines are left
   - several menus are on screen at once, or the menu is not focused

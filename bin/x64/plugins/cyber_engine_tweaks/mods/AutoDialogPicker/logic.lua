@@ -88,7 +88,7 @@ function Logic.decide(choices, opts)
                     return c.index, "first plain story line"
                 end
             end
-            return story[1].index, "first story line"
+            return nil, "several story lines, none plain"
         end
         return nil, "several story lines"
     end
