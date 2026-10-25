@@ -41,7 +41,8 @@ Enum = { new = function(typ, name)
     for i, n in ipairs(ENUMS[typ]) do if n == name then return { typ = typ, name = name, value = i - 1 } end end
     error("no enum " .. typ .. "." .. name)
 end }
-function EnumInt(e) return e.value end
+-- CET hands enum values back as 64-bit cdata numbers, not Lua numbers
+function EnumInt(e) return e.value + 0ULL end
 ChoiceTypeWrapper = { IsType = function(t, e) return t[e.name] == true end }
 
 ImGuiCond = { Always = 1, FirstUseEver = 4 }
@@ -159,7 +160,8 @@ local function check(name, got, want)
     count = count + 1
     if got ~= want then
         failures = failures + 1
-        print(string.format("FAIL %s: got %s, want %s", name, tostring(got), tostring(want)))
+        -- io.write: the debug scenario mutes print
+        io.write(string.format("FAIL %s: got %s, want %s\n", name, tostring(got), tostring(want)))
     end
 end
 local function picks() return table.concat(G.picks, " > ") end
@@ -324,7 +326,8 @@ local lifepathPart = {
     blueline = { parts = { { GetClassName = cname("LifePathBluelinePart"),
                              record = { GetID = function() return "LifePaths.Corporate" end } } } },
 }
-local quest = entry("q103_warning", "gameJournalQuest", "Ghost Town", entry("main_quest", "gameJournalPrimaryFolderEntry"))
+local root = entry("", "gameJournalRootFolderEntry")
+local quest = entry("q103_warning", "gameJournalQuest", "Ghost Town", entry("main_quest", "gameJournalPrimaryFolderEntry", nil, root))
 G.tracked = entry("meet_rogue", "gameJournalQuestObjective", nil, entry("phase_1", "gameJournalQuestPhase", nil, quest))
 
 local function setDebug()
@@ -343,8 +346,8 @@ Conv.show(Conv.new(17, "Hellman", {
     { text = "Talk.", QuestImportant = true },
 }))
 step(1)
-check("debug: quest path", logHas("quest: main_quest<gameJournalPrimaryFolderEntry>/q103_warning<gameJournalQuest>/"
-    .. "phase_1<gameJournalQuestPhase>/meet_rogue<gameJournalQuestObjective> (title: Ghost Town)"), true)
+check("debug: quest path", logHas("quest: main_quest<PrimaryFolder>/q103_warning<Quest>/"
+    .. "phase_1<QuestPhase>/meet_rogue<QuestObjective> (title: Ghost Town)"), true)
 check("debug: lifepath part", logHas("part: Blueline gameinteractionsChoiceCaptionBluelinePart{LifePathBluelinePart record=LifePaths.Corporate}"), true)
 Conv.hide(); step(0.3)
 
