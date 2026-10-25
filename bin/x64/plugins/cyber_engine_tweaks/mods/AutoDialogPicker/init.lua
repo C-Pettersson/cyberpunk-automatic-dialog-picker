@@ -147,6 +147,14 @@ local function resetPhase()
     S.targetKey = nil
 end
 
+-- Drops a pick that was waiting or on its way, saying why in the debug log.
+local function drop(why)
+    if S.phase == "waiting" or S.phase == "navigating" then
+        if settings.debug then log("dropped '" .. tostring(S.targetText) .. "': " .. why) end
+        resetPhase()
+    end
+end
+
 local function cancel(why)
     log("cancelled: " .. why)
     S.handledSig = S.sig
@@ -374,7 +382,7 @@ end
 local function tick()
     local player = Game.GetPlayer()
     if not player or S.overlayOpen or isInMenu() then
-        if S.phase ~= "idle" and S.phase ~= "selected" then resetPhase() end
+        drop(S.overlayOpen and "CET overlay open" or "a game menu is open")
         return
     end
 
@@ -383,6 +391,7 @@ local function tick()
 
     if #hubs == 0 then
         -- menu closed: the same menu may be handled again next time it opens
+        drop("the menu closed")
         if S.phase ~= "idle" then resetPhase() end
         S.handledSig = nil
         return
@@ -390,6 +399,7 @@ local function tick()
 
     -- Several menus at once (two NPCs, phone + person...): leave it to you.
     if #hubs ~= 1 then
+        drop("several menus on screen")
         if S.phase ~= "idle" then resetPhase() end
         return
     end
@@ -405,12 +415,13 @@ local function tick()
 
     if S.phase ~= "idle" and sig ~= S.sig then
         -- the menu changed (the pick went through, or the scene moved on)
+        drop("the menu changed")
         resetPhase()
     end
 
     -- The menu is shown but not focused (you are not looking at it).
     if hub.id ~= activeId then
-        if S.phase ~= "idle" and S.phase ~= "selected" then resetPhase() end
+        drop("the menu lost focus")
         if settings.debug and S.noteSig ~= sig then
             S.noteSig = sig
             log("menu not focused (menu " .. tostring(hub.id) .. ", focused " .. tostring(activeId) .. ")")
