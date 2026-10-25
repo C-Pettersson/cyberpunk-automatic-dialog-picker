@@ -14,6 +14,7 @@
 --   blueline         lifepath / special blue line
 --   glowline         highlighted special line
 --   hasIcon          has an action icon (trade, sit, take...)
+--   hasTag           bracketed action such as [Smile] or [Stop looking]
 --   dedicatedInput   uses a different button than the normal select key
 
 local Logic = {}
@@ -34,10 +35,15 @@ local function isPlainStory(c)
         and not (c.blueline or c.glowline or c.checkSuccess or c.pay or c.illegal)
 end
 
+-- An action with no spoken words, such as [Stop looking] or [Sit].
+local function isActionOnly(c)
+    return (c.text or ""):match("^%s*%[[^%]]*%]%s*$") ~= nil
+end
+
 -- An optional line worth hearing: not yellow, not read yet, and not an action.
 local function isUnreadOptional(c, pickedBefore)
     if c.questImportant or c.alreadyRead then return false end
-    if c.blueline or c.glowline or c.checkSuccess or c.hasIcon then return false end
+    if c.blueline or c.glowline or c.checkSuccess or c.hasIcon or c.hasTag then return false end
     if pickedBefore and pickedBefore(c) then return false end
     return true
 end
@@ -63,12 +69,15 @@ function Logic.decide(choices, opts)
     end
 
     local optional, story = {}, {}
+    local otherActions = false
     for _, c in ipairs(choices) do
         if canPress(c) then
             if c.questImportant then
                 story[#story + 1] = c
             elseif isUnreadOptional(c, opts.pickedBefore) then
                 optional[#optional + 1] = c
+            elseif c.hasIcon or c.hasTag then
+                otherActions = true
             end
         end
     end
@@ -78,15 +87,29 @@ function Logic.decide(choices, opts)
     end
 
     if #story == 1 then
+        -- The mirror: [Stop looking] next to [Smile], [Pout]... is a way out of
+        -- something you are playing with, not the story moving on.
+        if isActionOnly(story[1]) and otherActions then
+            return nil, "story line is an action next to other actions"
+        end
         return story[1].index, "only story line"
     end
 
     if #story > 1 then
         if storyRule == Logic.STORY_PICK_FIRST then
+            -- Prefer a spoken line over one with an icon, which may open a
+            -- shop (the bartender's "Whatcha got?") or move V ([Stand]).
+            local withIcon
             for _, c in ipairs(story) do
                 if isPlainStory(c) then
-                    return c.index, "first plain story line"
+                    if not c.hasIcon then
+                        return c.index, "first plain story line"
+                    end
+                    withIcon = withIcon or c
                 end
+            end
+            if withIcon then
+                return withIcon.index, "first plain story line"
             end
             return nil, "several story lines, none plain"
         end

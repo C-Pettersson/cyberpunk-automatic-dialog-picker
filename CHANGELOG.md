@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Mirrors no longer close on their own: when the only story line is an action such as [Stop looking] and the menu offers other actions ([Smile], [Pout]...), the menu is left to you.
+- Bracketed actions without an icon are no longer picked as optional dialogue.
+- *Pick the first plain story line* now prefers a spoken line over one with an icon, so a bartender's "Whatcha got?" no longer opens the shop.
+- The debug log says why a pick was dropped before it was made (menu closed, changed or lost focus, or a game menu opened).
+
 ## 1.0.0
 
 First release.

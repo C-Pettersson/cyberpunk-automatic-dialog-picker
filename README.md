@@ -16,6 +16,7 @@ The menu is left to you when:
 - there are several yellow story lines, which is a real decision (or set *Several story lines* to *Pick the first plain story line* for a mostly hands-off run; lifepath and skill-check lines are never picked this way, so if none is plain the menu is still yours)
 - a line costs money or is marked illegal
 - only already-read lines, actions such as `[Trade]` or `[Sit]`, or special lines are left
+- the only story line is an action next to other actions, such as `[Stop looking]` at a mirror next to `[Smile]` and `[Pout]`
 - several menus are on screen at once, or the menu is not focused
 - you are not in a conversation, for example a vendor or NPC prompt in the street
 

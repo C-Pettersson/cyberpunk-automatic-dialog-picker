@@ -19,6 +19,8 @@ The menu is left to you when:
     them is plain (not a lifepath or skill-check line)
   - a line costs money or is marked illegal
   - only already-read lines, actions ([Trade], [Sit]...) or special lines are left
+  - the only story line is an action next to other actions, like
+    [Stop looking] at a mirror next to [Smile] and [Pout]
   - several menus are on screen at once, or the menu is not focused
   - you are not in a conversation (a vendor or NPC prompt in the street)
 
