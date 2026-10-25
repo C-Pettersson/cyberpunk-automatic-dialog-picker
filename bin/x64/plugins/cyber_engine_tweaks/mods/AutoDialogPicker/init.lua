@@ -4,6 +4,7 @@
 --   Include optional  : hears every unread optional line first, then takes the
 --                       story (yellow) line when it is the only one.
 --   Skip optional     : goes straight to the story line when it is the only one.
+--   Custom            : you choose what happens in each situation (Logic.RULES).
 -- When there are several story lines, money/illegal lines or nothing sensible
 -- to pick, the menu is left to you (or, if you choose, the first plain story
 -- line is taken).
@@ -27,7 +28,7 @@ local SELECTED_TIMEOUT = 4.0 -- after pressing select, wait for the menu to chan
 local PICKED_MEMORY = 600    -- seconds an auto-picked optional line counts as heard
 local HELPER_STALE = 5       -- seconds without a helper heartbeat = helper not running
 
-local MODE_NAMES = { "Include optional dialogue", "Skip optional dialogue" }
+local MODE_NAMES = { "Include optional dialogue", "Skip optional dialogue", "Custom" }
 local STORY_NAMES = { "Let me choose", "Pick the first plain story line" }
 
 local settings = {
@@ -39,6 +40,12 @@ local settings = {
     showNotice = true,
     debug = false,
 }
+
+-- Custom mode: one setting per rule in Logic.RULES (custom_optional,
+-- custom_oneAction ...), starting out as "Include optional dialogue".
+for key, value in pairs(Logic.preset(Logic.MODE_INCLUDE_OPTIONAL)) do
+    settings["custom_" .. key] = value
+end
 
 local S = {
     ready = false,
@@ -99,10 +106,22 @@ local function loadSettings()
             end
         end
     end
-    if settings.mode ~= 1 and settings.mode ~= 2 then settings.mode = 1 end
+    if settings.mode ~= 1 and settings.mode ~= 2 and settings.mode ~= 3 then settings.mode = 1 end
     if settings.storyRule ~= 1 and settings.storyRule ~= 2 then settings.storyRule = 1 end
+    local defaults = Logic.preset(Logic.MODE_INCLUDE_OPTIONAL)
+    for _, rule in ipairs(Logic.RULES) do
+        local k = "custom_" .. rule.key
+        local v = settings[k]
+        if v ~= math.floor(v) or v < 1 or v > #rule.options then settings[k] = defaults[rule.key] end
+    end
     if settings.delay < 0.2 then settings.delay = 0.2 end
     if settings.delay > 5 then settings.delay = 5 end
+end
+
+local function customRules()
+    local rules = {}
+    for _, rule in ipairs(Logic.RULES) do rules[rule.key] = settings["custom_" .. rule.key] end
+    return rules
 end
 
 local function saveSettings()
@@ -178,6 +197,46 @@ local function isType(choiceType, enum)
     return ChoiceTypeWrapper.IsType(choiceType, enum) == true
 end
 
+-- obj[name], or nil when the field does not exist.
+local function field(obj, name)
+    if obj == nil then return nil end
+    local ok, v = pcall(function() return obj[name] end)
+    if ok then return v end
+    return nil
+end
+
+local function className(obj)
+    local ok, n = pcall(function() return obj:GetClassName() end)
+    if ok and n ~= nil then return nameToString(n) end
+    return "?"
+end
+
+-- "LifePaths.Corporate" for a TweakDB record, nil for anything else.
+local function recordName(v)
+    local ok, id = pcall(function() return v:GetID() end)
+    if not ok or id == nil then return nil end
+    local ok2, s = pcall(TDBID.ToStringDEBUG, id)
+    if ok2 and type(s) == "string" and s ~= "" then return s end
+    return tostring(id)
+end
+
+-- Lifepath and skill-check lines say what they are in a blueline caption part:
+-- LifePathBluelinePart (record LifePaths.Corporate) or BuildBluelinePart
+-- (record PlayerBuilds.Netrunner). When that cannot be read, the line stays an
+-- unknown blue line, which the rules leave alone.
+local function readBlueline(part, choice)
+    local inner = field(field(part, "blueline"), "parts")
+    if type(inner) ~= "table" then return end
+    for _, bp in ipairs(inner) do
+        local cls = className(bp)
+        if cls:find("LifePathBluelinePart", 1, true) then
+            choice.lifepath = recordName(field(bp, "record")) or "?"
+        elseif cls:find("BuildBluelinePart", 1, true) then
+            choice.skillCheck = recordName(field(bp, "record")) or "?"
+        end
+    end
+end
+
 -- Turns a game ListChoiceData into the plain table logic.lua expects.
 local function toChoice(c, index)
     local t = c.type
@@ -207,6 +266,7 @@ local function toChoice(c, index)
             if kind == PART_ICON then choice.hasIcon = true end
             if kind == PART_TAG then choice.hasTag = true end
         end
+        pcall(readBlueline, part, choice)
     end
     if string.sub(choice.text, 1, 1) == "[" then choice.hasTag = true end
 
@@ -227,6 +287,8 @@ local function flagString(c)
     if c.illegal then f[#f + 1] = "!" end
     if c.blueline then f[#f + 1] = "B" end
     if c.glowline then f[#f + 1] = "G" end
+    if c.lifepath then f[#f + 1] = "life" end
+    if c.skillCheck then f[#f + 1] = "skill" end
     if c.timed then f[#f + 1] = "T" end
     if c.hasIcon then f[#f + 1] = "icon" end
     if c.dedicatedInput then f[#f + 1] = "key" end
@@ -238,29 +300,6 @@ end
 -- attribute a line belongs to, which quest is tracked). Only read when the
 -- debug log is on, and never allowed to stop the mod.
 ------------------------------------------------------------------------------
-
--- obj[name], or nil when the field does not exist.
-local function field(obj, name)
-    if obj == nil then return nil end
-    local ok, v = pcall(function() return obj[name] end)
-    if ok then return v end
-    return nil
-end
-
-local function className(obj)
-    local ok, n = pcall(function() return obj:GetClassName() end)
-    if ok and n ~= nil then return nameToString(n) end
-    return "?"
-end
-
--- "LifePaths.Corporate" for a TweakDB record, nil for anything else.
-local function recordName(v)
-    local ok, id = pcall(function() return v:GetID() end)
-    if not ok or id == nil then return nil end
-    local ok2, s = pcall(TDBID.ToStringDEBUG, id)
-    if ok2 and type(s) == "string" and s ~= "" then return s end
-    return tostring(id)
-end
 
 local function valueString(v)
     local t = type(v)
@@ -451,6 +490,7 @@ local function tick()
         local index, reason = Logic.decide(choices, {
             mode = settings.mode,
             storyRule = settings.storyRule,
+            rules = customRules(),
             pickedBefore = function(c) return S.picked[pickedKey(hub, c)] ~= nil end,
         })
 
@@ -577,8 +617,26 @@ local function drawSettings()
         idx, c = ImGui.Combo("Mode", settings.mode - 1, MODE_NAMES, #MODE_NAMES)
         if c then settings.mode = idx + 1; changed = true end
 
-        idx, c = ImGui.Combo("Several story lines", settings.storyRule - 1, STORY_NAMES, #STORY_NAMES)
-        if c then settings.storyRule = idx + 1; changed = true end
+        if settings.mode == Logic.MODE_CUSTOM then
+            for _, rule in ipairs(Logic.RULES) do
+                local k = "custom_" .. rule.key
+                ImGui.Text(rule.label)
+                idx, c = ImGui.Combo("##" .. k, settings[k] - 1, rule.options, #rule.options)
+                if c then settings[k] = idx + 1; changed = true end
+            end
+            ImGui.TextWrapped("Always left to you: lines that cost money or are illegal, and an action next to other story lines.")
+        else
+            idx, c = ImGui.Combo("Several story lines", settings.storyRule - 1, STORY_NAMES, #STORY_NAMES)
+            if c then settings.storyRule = idx + 1; changed = true end
+            if ImGui.Button("Customize these rules") then
+                for key, value in pairs(Logic.preset(settings.mode, settings.storyRule)) do
+                    settings["custom_" .. key] = value
+                end
+                settings.mode = Logic.MODE_CUSTOM
+                changed = true
+            end
+        end
+        ImGui.Separator()
 
         v, c = ImGui.SliderFloat("Delay (seconds)", settings.delay, 0.2, 5.0, "%.1f")
         if c then settings.delay = v; changed = true end
@@ -592,7 +650,10 @@ local function drawSettings()
         v, c = ImGui.Checkbox("Debug log (CET console)", settings.debug)
         if c then settings.debug = v; changed = true end
 
-        if changed then saveSettings() end
+        if changed then
+            saveSettings()
+            S.handledSig = nil   -- the menu on screen is decided again with the new settings
+        end
 
         ImGui.Separator()
         if S.broken then
@@ -690,9 +751,8 @@ registerHotkey("adp_toggle", "Turn auto-pick on/off", function()
     toast(MOD_NAME .. ": " .. (settings.enabled and "ON" or "OFF"))
 end)
 
-registerHotkey("adp_mode", "Switch mode (include/skip optional)", function()
-    settings.mode = settings.mode == Logic.MODE_INCLUDE_OPTIONAL and Logic.MODE_SKIP_OPTIONAL
-        or Logic.MODE_INCLUDE_OPTIONAL
+registerHotkey("adp_mode", "Switch mode (include optional / skip optional / custom)", function()
+    settings.mode = settings.mode % #MODE_NAMES + 1
     saveSettings()
     S.handledSig = nil
     resetPhase()

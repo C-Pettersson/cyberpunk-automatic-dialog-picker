@@ -53,7 +53,16 @@ ImGui = setmetatable({}, { __index = function(_, k)
         if SIM_CLICK == label then SIM_CLICK = nil; return not v, true end
         return v, false
     end end
-    if k == "Combo" then return function(_, v) return v, false end end
+    if k == "Combo" then return function(label, v)
+        if SIM_COMBO and SIM_COMBO[1] == label then
+            local idx = SIM_COMBO[2]; SIM_COMBO = nil; return idx, true
+        end
+        return v, false
+    end end
+    if k == "Button" then return function(label)
+        if SIM_CLICK == label then SIM_CLICK = nil; return true end
+        return false
+    end end
     if k == "SliderFloat" then return function(_, v) return v, false end end
     return function() end
 end })
@@ -228,11 +237,11 @@ G.picks = {}
 Conv.show(mirror()); step(3)
 check("mirror -> nothing picked (skip)", picks(), "")
 Conv.hide(); step(0.3)
-hotkeys.adp_mode()
+hotkeys.adp_mode(); hotkeys.adp_mode()   -- skip -> custom -> include
 Conv.show(mirror()); step(3)
 check("mirror -> nothing picked (include)", picks(), "")
 Conv.hide(); step(0.3)
-hotkeys.adp_mode()
+hotkeys.adp_mode()                       -- include -> skip
 
 -- 3c) The Pickup: a timed [Draw weapon] is left to you, even on its own
 G.picks = {}
@@ -361,6 +370,63 @@ Conv.hide(); step(0.3)
 setDebug()
 print = realPrint
 G.tracked = nil
+
+-- 13) custom mode, set up in the settings window
+local Logic = require("logic")
+local function overlay(fn)
+    events.onOverlayOpen(); events.onDraw()
+    fn(); events.onDraw()
+    events.onOverlayClose()
+end
+local function blueline(cls, record)
+    return {
+        GetType = function() return Enum.new("gamedataChoiceCaptionPartType", "Blueline") end,
+        GetClassName = cname("gameinteractionsChoiceCaptionBluelinePart"),
+        blueline = { parts = { { GetClassName = cname(cls), record = { GetID = function() return record end } } } },
+    }
+end
+-- skip mode is active: "Customize these rules" starts Custom from it
+overlay(function() SIM_CLICK = "Customize these rules" end)
+G.picks = {}
+Conv.show(Conv.new(19, "Jackie", { { text = "Why's it gotta be me?" }, { text = "Fine.", QuestImportant = true } }))
+step(3)
+check("custom from skip preset skips optional", picks(), "Fine.")
+Conv.hide(); step(0.3)
+
+-- several story lines with a lifepath line, read from the caption parts
+overlay(function() SIM_COMBO = { "##custom_severalLifepath", Logic.SPECIAL_PICK - 1 } end)
+G.picks = {}
+Conv.show(Conv.new(20, "Hellman", {
+    { text = "Did the same with the Valentinos?", QuestImportant = true },
+    { text = "You can kick the rat outta the corp...", QuestImportant = true, Blueline = true,
+      parts = { blueline("LifePathBluelinePart", "LifePaths.Corporate") } },
+}))
+step(3)
+check("custom picks lifepath line", picks(), "You can kick the rat outta the corp...")
+Conv.hide(); step(0.3)
+
+-- a skill-check line is left to you until the rule changes; the menu on
+-- screen is then decided again
+G.picks = {}
+Conv.show(Conv.new(21, "Hellman", {
+    { text = "What now?", QuestImportant = true },
+    { text = "Lemme neutralize him.", QuestImportant = true, Blueline = true,
+      parts = { blueline("BuildBluelinePart", "PlayerBuilds.Netrunner") } },
+}))
+step(3)
+check("skill check left to you", picks(), "")
+overlay(function() SIM_COMBO = { "##custom_severalSkill", Logic.SPECIAL_PICK - 1 } end)
+step(3)
+check("rule change picks skill check", picks(), "Lemme neutralize him.")
+Conv.hide(); step(0.3)
+
+-- the mode hotkey cycles from custom back round to include
+hotkeys.adp_mode()
+G.picks = {}
+Conv.show(Conv.new(22, "Jackie", { { text = "Why's it gotta be me?" }, { text = "Fine.", QuestImportant = true } }))
+step(3)
+Conv.hide(); step(0.5)
+check("include after cycling", G.picks[1], "Why's it gotta be me?")
 
 local errors = 0
 for _, l in ipairs(LOG) do if l:find("^ERROR") then errors = errors + 1; print(l) end end

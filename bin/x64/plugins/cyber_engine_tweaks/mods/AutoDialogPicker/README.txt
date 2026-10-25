@@ -13,6 +13,14 @@ When a dialogue menu appears, the mod waits a moment and then picks a line:
   Mode "Skip optional dialogue"
     Goes straight to the yellow story line, when there is only one.
 
+  Mode "Custom"
+    You choose what happens in each situation: optional lines, optional
+    lifepath lines, one story line, one action story line ([Take chip]),
+    several story lines, several with a lifepath line or a passed skill
+    check in them, and timed choices. "Customize these rules" starts from
+    the mode you are in. Lines that cost money or are illegal, and an
+    action next to other story lines, are always left to you.
+
 The menu is left to you when:
   - there are several yellow story lines (a real decision), unless you set
     "Several story lines" to "Pick the first plain story line" and one of
@@ -64,13 +72,14 @@ INSTALL
 SETTINGS
 ------------------------------------------------------------------------------
 Open the CET overlay in game (default key: ~). The "Auto Dialog Picker" window
-has: on/off, mode, what to do with several story lines, delay before picking,
-"only inside conversations", on-screen notice, debug log. It also shows
-whether the helper is running. Settings are saved in settings.json.
+has: on/off, mode, what to do with several story lines (or the Custom
+rules), delay before picking, "only inside conversations", on-screen notice,
+debug log. It also shows whether the helper is running. Settings are saved in
+settings.json.
 
 Hotkeys (set them in the CET overlay under Bindings):
   - Turn auto-pick on/off
-  - Switch mode (include/skip optional)
+  - Switch mode (include optional / skip optional / custom)
   - Choose this one myself (cancel the pending pick)
 
 Keys the helper presses are in helper-keys.ini: scroll up/down = mouse wheel,
@@ -85,7 +94,7 @@ GOOD TO KNOW
   - If you run the game as administrator, run the helper as administrator too.
   - Lines the mod already picked are remembered for 10 minutes, so a line the
     game never marks as read cannot loop forever.
-  - Timed choices are handled like any other menu.
+  - Timed choices are left to you, unless Custom mode says otherwise.
 
 
 TROUBLESHOOTING

@@ -152,5 +152,123 @@ check("include takes optional", Logic.decide(h, INC), 1)
 -- empty hub
 check("empty", Logic.decide({}, INC), nil)
 
+------------------------------------------------------------------ custom mode
+-- rules start from "Include optional dialogue"; overrides change single rules
+local function custom(overrides)
+    local rules = Logic.preset(Logic.MODE_INCLUDE_OPTIONAL)
+    for k, v in pairs(overrides or {}) do rules[k] = v end
+    return { mode = Logic.MODE_CUSTOM, rules = rules }
+end
+
+-- untouched custom rules behave like include; custom without rules too
+h = hub({ { text = "Who are you?" }, { questImportant = true } })
+check("custom default = include", Logic.decide(h, custom()), 1)
+check("custom without rules = include", Logic.decide(h, { mode = Logic.MODE_CUSTOM }), 1)
+-- the presets are the rules the simple modes always had
+check("skip preset skips optional", Logic.preset(Logic.MODE_SKIP_OPTIONAL).optional, Logic.OPTIONAL_SKIP)
+check("preset keeps several-story setting", Logic.preset(Logic.MODE_SKIP_OPTIONAL, Logic.STORY_PICK_FIRST).storyRule,
+    Logic.STORY_PICK_FIRST)
+
+-- 1) unread optional line
+check("custom skip optional", Logic.decide(h, custom({ optional = Logic.OPTIONAL_SKIP })), 2)
+
+-- 2) optional lifepath line (blue, not yellow)
+h = hub({ { blueline = true, lifepath = "LifePaths.Corporate", text = "I know how corps work." },
+          { questImportant = true } })
+check("optional lifepath skipped by default", Logic.decide(h, INC), 2)
+check("optional lifepath heard", Logic.decide(h, custom({ optionalLifepath = Logic.OPTIONAL_HEAR })), 1)
+check("optional lifepath -> reason", select(2, Logic.decide(h, custom({ optionalLifepath = Logic.OPTIONAL_HEAR }))),
+    "optional lifepath line")
+check("only lifepath optional heard", Logic.decide(h, custom({ optional = Logic.OPTIONAL_SKIP,
+    optionalLifepath = Logic.OPTIONAL_HEAR })), 1)
+h[1].alreadyRead = true
+check("read lifepath line not heard again", Logic.decide(h, custom({ optionalLifepath = Logic.OPTIONAL_HEAR })), 2)
+-- a blue line we could not identify stays out
+h = hub({ { blueline = true }, { questImportant = true } })
+check("unknown blue line not heard", Logic.decide(h, custom({ optionalLifepath = Logic.OPTIONAL_HEAR })), 2)
+
+-- 3) one story line, spoken
+h = hub({ { questImportant = true, text = "Let's talk business." } })
+check("one story -> ask", Logic.decide(h, custom({ oneSpoken = Logic.ONE_ASK })), nil)
+check("one story -> ask reason", select(2, Logic.decide(h, custom({ oneSpoken = Logic.ONE_ASK }))),
+    "one story line, set to let you choose")
+
+-- 4) one story line that is an action (Jackie's chip, skip optional)
+local function jackie()
+    return hub({ { questImportant = true, hasIcon = true, hasTag = true, text = "[Take chip] Here goes nothin'." },
+                 { text = "Why's it gotta be me?" }, { text = "Surveillance cover the whole hotel?" } })
+end
+check("[Take chip] when alone -> menu", Logic.decide(jackie(), custom({ optional = Logic.OPTIONAL_SKIP })), nil)
+check("[Take chip] right away", Logic.decide(jackie(), custom({ optional = Logic.OPTIONAL_SKIP,
+    oneAction = Logic.ACTION_PICK })), 1)
+h = hub({ { questImportant = true, hasIcon = true, hasTag = true, text = "[Get in]" } })
+check("lone action -> ask", Logic.decide(h, custom({ oneAction = Logic.ACTION_ASK })), nil)
+check("lone action when alone", Logic.decide(h, custom()), 1)
+
+-- 5) several plain story lines
+h = hub({ { questImportant = true }, { questImportant = true } })
+check("custom several -> menu", Logic.decide(h, custom()), nil)
+check("custom several -> first", Logic.decide(h, custom({ storyRule = Logic.STORY_PICK_FIRST })), 1)
+
+-- 6) several story lines, one a lifepath line (Hellman, Corpo)
+local function hellman()
+    return hub({ { questImportant = true, text = "Did the same with the Valentinos, didn't you?" },
+                 { questImportant = true, blueline = true, lifepath = "LifePaths.Corporate",
+                   text = "You can kick the rat outta the corp, but..." } })
+end
+check("lifepath same, let me choose", Logic.decide(hellman(), custom()), nil)
+check("lifepath same, pick first plain", Logic.decide(hellman(), custom({ storyRule = Logic.STORY_PICK_FIRST })), 1)
+check("lifepath picked", Logic.decide(hellman(), custom({ severalLifepath = Logic.SPECIAL_PICK })), 2)
+check("lifepath picked -> reason", select(2, Logic.decide(hellman(), custom({ severalLifepath = Logic.SPECIAL_PICK }))),
+    "lifepath line")
+check("lifepath ask beats pick first", Logic.decide(hellman(), custom({ severalLifepath = Logic.SPECIAL_ASK,
+    storyRule = Logic.STORY_PICK_FIRST })), nil)
+check("lifepath ask -> reason", select(2, Logic.decide(hellman(), custom({ severalLifepath = Logic.SPECIAL_ASK }))),
+    "several story lines, one is a lifepath line")
+
+-- 7) several story lines, one a passed skill check (Netrunner 5)
+local function netrunner()
+    return hub({ { questImportant = true, text = "What now?" },
+                 { questImportant = true, blueline = true, skillCheck = "PlayerBuilds.Netrunner",
+                   text = "Lemme neutralize him." } })
+end
+check("skill same, pick first plain", Logic.decide(netrunner(), custom({ storyRule = Logic.STORY_PICK_FIRST })), 1)
+check("skill picked", Logic.decide(netrunner(), custom({ severalSkill = Logic.SPECIAL_PICK })), 2)
+check("skill ask beats pick first", Logic.decide(netrunner(), custom({ severalSkill = Logic.SPECIAL_ASK,
+    storyRule = Logic.STORY_PICK_FIRST })), nil)
+h = hub({ { questImportant = true }, { questImportant = true, checkSuccess = true, text = "[Body 6] ..." } })
+check("old-style check counts as skill check", Logic.decide(h, custom({ severalSkill = Logic.SPECIAL_PICK })), 2)
+
+-- a lifepath line outranks a skill check
+local function both()
+    return hub({ { questImportant = true },
+                 { questImportant = true, blueline = true, skillCheck = "PlayerBuilds.Netrunner" },
+                 { questImportant = true, blueline = true, lifepath = "LifePaths.Corporate" } })
+end
+check("both picked -> lifepath", Logic.decide(both(), custom({ severalLifepath = Logic.SPECIAL_PICK,
+    severalSkill = Logic.SPECIAL_PICK })), 3)
+check("lifepath ask, skill pick -> menu", Logic.decide(both(), custom({ severalLifepath = Logic.SPECIAL_ASK,
+    severalSkill = Logic.SPECIAL_PICK })), nil)
+check("lifepath same, skill pick -> skill", Logic.decide(both(), custom({ severalSkill = Logic.SPECIAL_PICK })), 2)
+-- a special line that is also an action is never picked this way
+h = hub({ { questImportant = true, text = "Easy." },
+          { questImportant = true, hasTag = true, lifepath = "LifePaths.StreetKid", text = "[Shoot] ..." } })
+check("lifepath action not picked", Logic.decide(h, custom({ severalLifepath = Logic.SPECIAL_PICK })), nil)
+
+-- 8) timed choice
+h = hub({ { questImportant = true, timed = true, text = "Talk to me." } })
+check("timed asks by default", Logic.decide(h, custom()), nil)
+check("timed handled normally", Logic.decide(h, custom({ timed = Logic.TIMED_NORMAL })), 1)
+
+-- money and illegal lines stay yours whatever the rules say
+h = hub({ { questImportant = true, pay = true }, { questImportant = true, blueline = true, lifepath = "LifePaths.Nomad" } })
+check("custom pay -> menu", Logic.decide(h, custom({ severalLifepath = Logic.SPECIAL_PICK })), nil)
+
+-- every rule has a preset answer within its options
+for _, rule in ipairs(Logic.RULES) do
+    local v = Logic.preset(Logic.MODE_INCLUDE_OPTIONAL)[rule.key]
+    check("preset answers " .. rule.key, v ~= nil and v <= #rule.options, true)
+end
+
 print(string.format("%d checks, %d failures", count, failures))
 os.exit(failures == 0 and 0 or 1)
