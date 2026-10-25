@@ -70,6 +70,7 @@ local S = {
 local CT = {}        -- gameinteractionsChoiceType enums
 local PART_ICON = nil
 local PART_TAG = nil
+local PART_NAMES = {} -- gamedataChoiceCaptionPartType value -> name (debug log)
 
 ------------------------------------------------------------------------------
 -- helpers
@@ -232,6 +233,111 @@ local function flagString(c)
     return table.concat(f, ",")
 end
 
+------------------------------------------------------------------------------
+-- debug details: what the game tells us beyond the flags (which lifepath or
+-- attribute a line belongs to, which quest is tracked). Only read when the
+-- debug log is on, and never allowed to stop the mod.
+------------------------------------------------------------------------------
+
+-- obj[name], or nil when the field does not exist.
+local function field(obj, name)
+    if obj == nil then return nil end
+    local ok, v = pcall(function() return obj[name] end)
+    if ok then return v end
+    return nil
+end
+
+local function className(obj)
+    local ok, n = pcall(function() return obj:GetClassName() end)
+    if ok and n ~= nil then return nameToString(n) end
+    return "?"
+end
+
+-- "LifePaths.Corporate" for a TweakDB record, nil for anything else.
+local function recordName(v)
+    local ok, id = pcall(function() return v:GetID() end)
+    if not ok or id == nil then return nil end
+    local ok2, s = pcall(TDBID.ToStringDEBUG, id)
+    if ok2 and type(s) == "string" and s ~= "" then return s end
+    return tostring(id)
+end
+
+local function valueString(v)
+    local t = type(v)
+    if t == "string" or t == "number" or t == "boolean" then return tostring(v) end
+    return recordName(v) or tostring(v)
+end
+
+-- Fields found on some caption part and blueline part classes.
+local DETAIL_FIELDS = { "iconRecord", "content", "record", "lhsValue", "rhsValue",
+                        "comparisonType", "paymentMoney", "playerMoney" }
+
+local function partDetails(part)
+    local out = {}
+    for _, name in ipairs(DETAIL_FIELDS) do
+        local v = field(part, name)
+        if v ~= nil then out[#out + 1] = name .. "=" .. valueString(v) end
+    end
+    return out
+end
+
+-- "Blueline gameinteractionsChoiceCaptionBluelinePart{LifePathBluelinePart record=LifePaths.Corporate}"
+local function describePart(part)
+    local kind = "?"
+    local ok, k = pcall(function() return EnumInt(part:GetType()) end)
+    if ok then kind = PART_NAMES[k] or tostring(k) end
+    local bits = partDetails(part)
+    local inner = field(field(part, "blueline"), "parts")
+    if type(inner) == "table" then
+        for _, bp in ipairs(inner) do
+            local d = partDetails(bp)
+            bits[#bits + 1] = className(bp) .. (#d > 0 and (" " .. table.concat(d, " ")) or "")
+        end
+    end
+    return string.format("%s %s{%s}", kind, className(part), table.concat(bits, "; "))
+end
+
+-- One line per caption part of a game ListChoiceData.
+local function describeParts(c)
+    local out = {}
+    local caption = field(c, "captionParts")
+    local parts = field(caption, "parts")
+    if type(parts) ~= "table" then return out end
+    for _, part in ipairs(parts) do
+        local ok, s = pcall(describePart, part)
+        out[#out + 1] = ok and s or ("unreadable part: " .. tostring(s))
+    end
+    return out
+end
+
+-- "quests/main_quest/q103_warning/... (title: Ghost Town)": the tracked
+-- journal entry and its parents up to the top. Ids do not depend on language.
+local function trackedQuest()
+    local journal = Game.GetJournalManager()
+    local entry = journal:GetTrackedEntry()
+    if entry == nil then return "nothing tracked" end
+    local ids, title = {}, nil
+    while entry ~= nil and #ids < 10 do
+        table.insert(ids, 1, entry:GetId() .. "<" .. className(entry) .. ">")
+        local ok, t = pcall(function() return entry:GetTitle(journal) end)
+        if not title and ok and type(t) == "string" and t ~= "" then title = t end
+        entry = journal:GetParentEntry(entry)
+    end
+    return table.concat(ids, "/") .. (title and (" (title: " .. title .. ")") or "")
+end
+
+local function logMenuDetails(hub, choices, sel)
+    log("menu '" .. (hub.title or "") .. "', selected " .. tostring(sel))
+    local ok, quest = pcall(trackedQuest)
+    log("  quest: " .. (ok and quest or ("unreadable: " .. tostring(quest))))
+    for _, c in ipairs(choices) do
+        log(string.format("  %d. %s [%s]", c.index, c.text, flagString(c)))
+        for _, p in ipairs(describeParts((hub.choices or {})[c.index])) do
+            log("       part: " .. p)
+        end
+    end
+end
+
 -- Returns hubs, activeHubId, selectedIndex (or nil when nothing can be read).
 local function readHubs()
     local defs = GetAllBlackboardDefs()
@@ -341,10 +447,8 @@ local function tick()
         })
 
         if settings.debug then
-            log("menu '" .. (hub.title or "") .. "', selected " .. tostring(sel))
-            for _, c in ipairs(choices) do
-                log(string.format("  %d. %s [%s]", c.index, c.text, flagString(c)))
-            end
+            local ok, err = pcall(logMenuDetails, hub, choices, sel)
+            if not ok then log("could not log menu details: " .. tostring(err)) end
         end
 
         if not index then
@@ -514,6 +618,10 @@ registerForEvent("onInit", function()
         PART_ICON = EnumInt(Enum.new("gamedataChoiceCaptionPartType", "Icon"))
         PART_TAG = EnumInt(Enum.new("gamedataChoiceCaptionPartType", "Tag"))
     end)
+    for _, name in ipairs({ "Blueline", "Icon", "QuickhackCost", "Tag", "Text", "Count", "Invalid" }) do
+        local okName, e = pcall(Enum.new, "gamedataChoiceCaptionPartType", name)
+        if okName then PART_NAMES[EnumInt(e)] = name end
+    end
     if not ok then
         S.broken = "could not read game enums: " .. tostring(err)
         spdlog.error(S.broken)
