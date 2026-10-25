@@ -285,7 +285,7 @@ end
 local function describePart(part)
     local kind = "?"
     local ok, k = pcall(function() return EnumInt(part:GetType()) end)
-    if ok then kind = PART_NAMES[k] or tostring(k) end
+    if ok then kind = PART_NAMES[tonumber(k)] or tostring(k) end
     local bits = partDetails(part)
     local inner = field(field(part, "blueline"), "parts")
     if type(inner) == "table" then
@@ -310,15 +310,23 @@ local function describeParts(c)
     return out
 end
 
--- "quests/main_quest/q103_warning/... (title: Ghost Town)": the tracked
--- journal entry and its parents up to the top. Ids do not depend on language.
+-- "gameJournalQuestObjective" -> "QuestObjective", "gameJournalFolderEntry" -> "Folder"
+local function journalKind(entry)
+    return (className(entry):gsub("^gameJournal", ""):gsub("Entry$", ""))
+end
+
+-- "quests<PrimaryFolder>/main_quest<Folder>/q103_warning<Quest>/... (title: Ghost Town)":
+-- the tracked journal entry and its parents up to the top, leaving out the
+-- unnamed root. Ids do not depend on language.
 local function trackedQuest()
     local journal = Game.GetJournalManager()
     local entry = journal:GetTrackedEntry()
     if entry == nil then return "nothing tracked" end
     local ids, title = {}, nil
-    while entry ~= nil and #ids < 10 do
-        table.insert(ids, 1, entry:GetId() .. "<" .. className(entry) .. ">")
+    for _ = 1, 10 do
+        if entry == nil then break end
+        local id = entry:GetId()
+        if id ~= "" then table.insert(ids, 1, id .. "<" .. journalKind(entry) .. ">") end
         local ok, t = pcall(function() return entry:GetTitle(journal) end)
         if not title and ok and type(t) == "string" and t ~= "" then title = t end
         entry = journal:GetParentEntry(entry)
@@ -620,7 +628,8 @@ registerForEvent("onInit", function()
     end)
     for _, name in ipairs({ "Blueline", "Icon", "QuickhackCost", "Tag", "Text", "Count", "Invalid" }) do
         local okName, e = pcall(Enum.new, "gamedataChoiceCaptionPartType", name)
-        if okName then PART_NAMES[EnumInt(e)] = name end
+        -- EnumInt gives a 64-bit cdata number, which does not work as a table key
+        if okName then PART_NAMES[tonumber(EnumInt(e))] = name end
     end
     if not ok then
         S.broken = "could not read game enums: " .. tostring(err)
