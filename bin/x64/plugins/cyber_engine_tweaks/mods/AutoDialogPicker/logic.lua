@@ -13,8 +13,9 @@
 --   illegal          marked as illegal
 --   blueline         lifepath / special blue line
 --   glowline         highlighted special line
+--   timed            timed choice (a timer runs while the menu is up)
 --   hasIcon          has an action icon (trade, sit, take...)
---   hasTag           bracketed action such as [Smile] or [Stop looking]
+--   hasTag           bracketed action such as [Smile] or [Draw weapon]
 --   dedicatedInput   uses a different button than the normal select key
 
 local Logic = {}
@@ -35,9 +36,10 @@ local function isPlainStory(c)
         and not (c.blueline or c.glowline or c.checkSuccess or c.pay or c.illegal)
 end
 
--- An action with no spoken words, such as [Stop looking] or [Sit].
-local function isActionOnly(c)
-    return (c.text or ""):match("^%s*%[[^%]]*%]%s*$") ~= nil
+-- Something V does rather than says: [Sit], [Draw weapon], [Shoot Royce] ...,
+-- or a line with an icon that may open a shop.
+local function isAction(c)
+    return c.hasIcon or c.hasTag
 end
 
 -- An optional line worth hearing: not yellow, not read yet, and not an action.
@@ -62,22 +64,27 @@ function Logic.decide(choices, opts)
     end
 
     -- Money and illegal actions are real decisions: always leave them to you.
+    -- So are timed choices: answering late, or not at all, is a choice too.
     for _, c in ipairs(choices) do
         if canPress(c) and (c.pay or c.illegal) then
             return nil, "a line costs money or is illegal"
         end
+        if canPress(c) and c.timed then
+            return nil, "timed choice"
+        end
     end
 
     local optional, story = {}, {}
-    local otherActions = false
+    local unheard = 0   -- lines you could press that you have not picked before
     for _, c in ipairs(choices) do
         if canPress(c) then
             if c.questImportant then
                 story[#story + 1] = c
             elseif isUnreadOptional(c, opts.pickedBefore) then
                 optional[#optional + 1] = c
-            elseif c.hasIcon or c.hasTag then
-                otherActions = true
+            end
+            if c.questImportant or not (c.alreadyRead or (opts.pickedBefore and opts.pickedBefore(c))) then
+                unheard = unheard + 1
             end
         end
     end
@@ -87,29 +94,23 @@ function Logic.decide(choices, opts)
     end
 
     if #story == 1 then
-        -- The mirror: [Stop looking] next to [Smile], [Pout]... is a way out of
-        -- something you are playing with, not the story moving on.
-        if isActionOnly(story[1]) and otherActions then
-            return nil, "story line is an action next to other actions"
+        -- An action ([Draw weapon], the mirror's [Stop looking]) is only taken
+        -- when nothing else is on offer; next to other lines it may be the
+        -- choice that matters.
+        if isAction(story[1]) and unheard > 1 then
+            return nil, "story line is an action and there are other lines"
         end
         return story[1].index, "only story line"
     end
 
     if #story > 1 then
         if storyRule == Logic.STORY_PICK_FIRST then
-            -- Prefer a spoken line over one with an icon, which may open a
-            -- shop (the bartender's "Whatcha got?") or move V ([Stand]).
-            local withIcon
+            -- Only spoken lines: an action may open a shop (the bartender's
+            -- "Whatcha got?") or be the decision itself ([Shoot Royce] ...).
             for _, c in ipairs(story) do
-                if isPlainStory(c) then
-                    if not c.hasIcon then
-                        return c.index, "first plain story line"
-                    end
-                    withIcon = withIcon or c
+                if isPlainStory(c) and not isAction(c) then
+                    return c.index, "first plain story line"
                 end
-            end
-            if withIcon then
-                return withIcon.index, "first plain story line"
             end
             return nil, "several story lines, none plain"
         end

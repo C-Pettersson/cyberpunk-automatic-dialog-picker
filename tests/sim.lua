@@ -223,6 +223,13 @@ check("mirror -> nothing picked (include)", picks(), "")
 Conv.hide(); step(0.3)
 hotkeys.adp_mode()
 
+-- 3c) The Pickup: a timed [Draw weapon] is left to you, even on its own
+G.picks = {}
+Conv.show(Conv.new(11, "Royce", { { text = "[Draw weapon]", QuestImportant = true, TimedDialog = true } }))
+step(3)
+check("timed [Draw weapon] -> nothing picked", picks(), "")
+Conv.hide(); step(0.3)
+
 -- 4) cancel by scrolling during the delay
 G.picks = {}
 Conv.show(Conv.new(9, "Judy", { { text = "Hi" }, { text = "Let's go", QuestImportant = true } }))
