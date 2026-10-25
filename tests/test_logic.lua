@@ -62,6 +62,15 @@ h = hub({ { questImportant = true, checkSuccess = true }, { questImportant = tru
 check("pick first with no plain story -> menu", Logic.decide(h, SKIP_FIRST), nil)
 check("pick first with no plain story -> reason", select(2, Logic.decide(h, SKIP_FIRST)), "several story lines, none plain")
 
+-- pick first prefers a line without an icon (the bartender's shop line)
+h = hub({ { questImportant = true, hasIcon = true, text = "Whatcha got?" }, { questImportant = true, text = "I'm good, thanks." },
+          { questImportant = true, blueline = true } })
+check("pick first skips shop icon", Logic.decide(h, SKIP_FIRST), 2)
+-- ...but still takes an icon line when every plain line has one
+h = hub({ { questImportant = true, hasIcon = true, text = "[Stand] Something I gotta take care of first." },
+          { questImportant = true, hasIcon = true, text = "[Stand] Let's go." } })
+check("pick first, all icons", Logic.decide(h, SKIP_FIRST), 1)
+
 -- money and illegal lines always leave the menu to the player
 h = hub({ { questImportant = true, pay = true }, {} })
 check("pay -> menu", Logic.decide(h, INC), nil)
@@ -81,6 +90,27 @@ check("dedicated input -> menu", Logic.decide(h, SKIP), nil)
 h = hub({ { hasIcon = true, text = "[Trade]" }, { blueline = true }, { glowline = true }, { checkSuccess = true } })
 check("no chatter -> menu (include)", Logic.decide(h, INC), nil)
 check("no chatter -> menu (skip)", Logic.decide(h, SKIP), nil)
+
+-- bracketed actions without an icon (the emotes at a mirror) are not chatter either
+h = hub({ { hasTag = true, text = "[Smile]" }, { hasTag = true, text = "[Pout]" } })
+check("tag actions -> menu (include)", Logic.decide(h, INC), nil)
+h = hub({ { hasTag = true, text = "[Smile]" }, { text = "Hey." } })
+check("tag action skipped for chatter", Logic.decide(h, INC), 2)
+
+-- the mirror: a yellow [Stop looking] next to emotes is left to you in both modes
+local function mirror()
+    return hub({ { questImportant = true, hasIcon = true, hasTag = true, text = "[Stop looking]" },
+                 { hasTag = true, text = "[Smile]" }, { hasTag = true, text = "[Scowl]" },
+                 { hasTag = true, alreadyRead = true, text = "[Pout]" } })
+end
+check("mirror -> menu (include)", Logic.decide(mirror(), INC), nil)
+check("mirror -> menu (skip)", Logic.decide(mirror(), SKIP), nil)
+-- ...but a spoken story line next to an action is still taken
+h = hub({ { questImportant = true, text = "Let's talk business." }, { hasIcon = true, hasTag = true, text = "[Trade]" } })
+check("story beside [Trade]", Logic.decide(h, SKIP), 1)
+-- ...and so is an action story line next to plain chatter you have already heard
+h = hub({ { questImportant = true, hasIcon = true, hasTag = true, text = "[Stand]" }, { alreadyRead = true, text = "Hey." } })
+check("[Stand] beside read chatter", Logic.decide(h, INC), 1)
 
 -- yellow line with an icon (e.g. [Sit]) is fine when it is the only way on
 h = hub({ { questImportant = true, hasIcon = true } })

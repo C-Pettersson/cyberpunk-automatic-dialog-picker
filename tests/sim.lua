@@ -208,6 +208,21 @@ step(3)
 check("several story -> nothing picked", picks(), "")
 Conv.hide(); step(0.3)
 
+-- 3b) the mirror (menu as logged in game): nothing picked in either mode
+local function mirror()
+    return Conv.new(10, "LocKey#46420", { { text = "[Stop looking]", QuestImportant = true, icon = true },
+        { text = "[Smile]" }, { text = "[Scowl]" }, { text = "[Pout]" }, { text = "[Gawk]" }, { text = "[Stare]" } })
+end
+G.picks = {}
+Conv.show(mirror()); step(3)
+check("mirror -> nothing picked (skip)", picks(), "")
+Conv.hide(); step(0.3)
+hotkeys.adp_mode()
+Conv.show(mirror()); step(3)
+check("mirror -> nothing picked (include)", picks(), "")
+Conv.hide(); step(0.3)
+hotkeys.adp_mode()
+
 -- 4) cancel by scrolling during the delay
 G.picks = {}
 Conv.show(Conv.new(9, "Judy", { { text = "Hi" }, { text = "Let's go", QuestImportant = true } }))
