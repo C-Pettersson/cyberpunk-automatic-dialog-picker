@@ -10,6 +10,7 @@ When a dialogue menu appears, the mod waits a moment and then picks a line, depe
 | --- | --- |
 | **Include optional dialogue** (default) | Every unread optional line first, top to bottom, then the yellow story line when it is the only one. |
 | **Skip optional dialogue** | The yellow story line straight away, when it is the only one. |
+| **Custom** | You choose what happens in each situation (see below). |
 
 The menu is left to you when:
 
@@ -22,6 +23,23 @@ The menu is left to you when:
 - you are not in a conversation, for example a vendor or NPC prompt in the street
 
 Scroll during the short delay, or press the *Choose this one myself* hotkey, and the mod keeps its hands off that menu.
+
+### Custom mode
+
+*Custom* lists the situations below, each with its own choice. Press *Customize these rules* in either simple mode to start from that mode's rules; until you change something, the mod behaves exactly as that mode does.
+
+| Situation | Choices | Simple modes |
+| --- | --- | --- |
+| Unread optional line | Hear it · Skip it | Include: hear · Skip: skip |
+| Optional lifepath line (blue, not yellow) | Hear it · Skip it | Skip it |
+| One story line | Pick it · Let me choose | Pick it |
+| One story line that is an action (`[Take chip]`, `[Open]`) | Pick it when nothing else is left · Pick it right away · Let me choose | Pick it when nothing else is left |
+| Several story lines | Let me choose · Pick the first plain story line | your *Several story lines* setting |
+| Several story lines, one is a lifepath line | Same as several story lines · Pick the lifepath line · Let me choose | Same as several story lines |
+| Several story lines, one is a passed skill check | Same as several story lines · Pick the skill check · Let me choose | Same as several story lines |
+| Timed choice | Let me choose · Handle like any other menu | Let me choose |
+
+For example, skip side questions but always take your Corpo lines and your Netrunner checks. When a menu has both, the lifepath line wins over the skill check. Lines that cost money or are illegal, and an action next to other story lines (such as `[Shoot Royce]`), are always left to you.
 
 ## How it works
 
@@ -48,7 +66,7 @@ Open the CET overlay in game (default `~`). The *Auto Dialog Picker* window has:
 
 - on/off
 - mode
-- what to do with several story lines
+- what to do with several story lines, or the *Custom* rules
 - delay before picking
 - *Only inside conversations*
 - on-screen notice

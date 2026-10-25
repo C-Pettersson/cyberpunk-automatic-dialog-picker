@@ -7,6 +7,9 @@
 - Bracketed actions without an icon are no longer picked as optional dialogue.
 - *Pick the first plain story line* never takes an action or a line with an icon, so a bartender's "Whatcha got?" no longer opens the shop.
 - The debug log says why a pick was dropped before it was made (menu closed, changed or lost focus, or a game menu opened).
+- New **Custom** mode: choose what happens in each situation (optional lines, optional lifepath lines, one story line, one action story line, several story lines, several with a lifepath line or a passed skill check, timed choices). *Customize these rules* starts from the mode you are in. Lifepath and skill-check lines are recognised from the game's own data (for example `LifePaths.Corporate`, `PlayerBuilds.Netrunner`).
+- The *Switch mode* hotkey cycles through Include optional, Skip optional and Custom.
+- The debug log shows each line's caption parts (lifepath, skill check, icon) and the tracked quest.
 
 ## 1.0.0
 
