@@ -48,7 +48,10 @@ ImGuiCond = { Always = 1, FirstUseEver = 4 }
 ImGuiWindowFlags = { NoDecoration = 1, NoInputs = 2, AlwaysAutoResize = 4, NoSavedSettings = 8, NoFocusOnAppearing = 16, NoNav = 32 }
 ImGui = setmetatable({}, { __index = function(_, k)
     if k == "Begin" then return function() return true end end
-    if k == "Checkbox" then return function(_, v) return v, false end end
+    if k == "Checkbox" then return function(label, v)
+        if SIM_CLICK == label then SIM_CLICK = nil; return not v, true end
+        return v, false
+    end end
     if k == "Combo" then return function(_, v) return v, false end end
     if k == "SliderFloat" then return function(_, v) return v, false end end
     return function() end
@@ -77,6 +80,11 @@ Game = {
     GetSceneSystem = function() return { GetScriptInterface = function()
         return { IsEntityInDialogue = function() return G.inDialogue end } end } end,
 }
+Game.GetJournalManager = function() return {
+    GetTrackedEntry = function() return G.tracked end,
+    GetParentEntry = function(_, e) return e.parent end,
+} end
+TDBID = { ToStringDEBUG = function(id) return id end }
 PlayerPuppet = { GetSceneTier = function() return G.tier end }
 function FromVariant(v) return v end
 
@@ -88,6 +96,7 @@ local function mkChoice(spec)
     end
     local parts = {}
     if spec.icon then parts[#parts + 1] = { GetType = function() return Enum.new("gamedataChoiceCaptionPartType", "Icon") end } end
+    for _, p in ipairs(spec.parts or {}) do parts[#parts + 1] = p end
     return { localizedName = spec.text, type = t, captionParts = { parts = parts }, inputActionName = { value = spec.input or "" } }
 end
 
@@ -278,6 +287,55 @@ Conv.show(Conv.new(16, "Claire", { { text = "Race", QuestImportant = true } }))
 step(0.3, false)
 check("notice text", NOTICES[1], "Auto: Race   (scroll to choose yourself)")
 Conv.hide(); step(0.3)
+
+-- 12) debug log: caption part details and the tracked quest
+local function cname(n) return function() return { value = n } end end
+local function entry(id, cls, title, parent)
+    local e = { parent = parent, GetClassName = cname(cls) }
+    if id then e.GetId = function() return id end end
+    if title then e.GetTitle = function() return title end end
+    return e
+end
+local lifepathPart = {
+    GetType = function() return Enum.new("gamedataChoiceCaptionPartType", "Blueline") end,
+    GetClassName = cname("gameinteractionsChoiceCaptionBluelinePart"),
+    blueline = { parts = { { GetClassName = cname("LifePathBluelinePart"),
+                             record = { GetID = function() return "LifePaths.Corporate" end } } } },
+}
+local quest = entry("q103_warning", "gameJournalQuest", "Ghost Town", entry("main_quest", "gameJournalPrimaryFolderEntry"))
+G.tracked = entry("meet_rogue", "gameJournalQuestObjective", nil, entry("phase_1", "gameJournalQuestPhase", nil, quest))
+
+local function setDebug()
+    SIM_CLICK = "Debug log (CET console)"
+    events.onOverlayOpen(); events.onDraw(); events.onOverlayClose()
+end
+local function logHas(text)
+    for _, l in ipairs(LOG) do if l:find(text, 1, true) then return true end end
+    return false
+end
+local realPrint = print
+print = function() end         -- the mod echoes its debug log to the console
+setDebug()
+Conv.show(Conv.new(17, "Hellman", {
+    { text = "I worked for Arasaka.", QuestImportant = true, Blueline = true, parts = { lifepathPart } },
+    { text = "Talk.", QuestImportant = true },
+}))
+step(1)
+check("debug: quest path", logHas("quest: main_quest<gameJournalPrimaryFolderEntry>/q103_warning<gameJournalQuest>/"
+    .. "phase_1<gameJournalQuestPhase>/meet_rogue<gameJournalQuestObjective> (title: Ghost Town)"), true)
+check("debug: lifepath part", logHas("part: Blueline gameinteractionsChoiceCaptionBluelinePart{LifePathBluelinePart record=LifePaths.Corporate}"), true)
+Conv.hide(); step(0.3)
+
+-- a journal that does not behave as expected is logged, not fatal
+G.tracked = entry(nil, "gameJournalQuest")
+Conv.show(Conv.new(18, "Goro", { { text = "Ok", QuestImportant = true } }))
+step(3)
+check("debug: unreadable quest logged", logHas("quest: unreadable"), true)
+check("debug: still picks", G.picks[#G.picks], "Ok")
+Conv.hide(); step(0.3)
+setDebug()
+print = realPrint
+G.tracked = nil
 
 local errors = 0
 for _, l in ipairs(LOG) do if l:find("^ERROR") then errors = errors + 1; print(l) end end

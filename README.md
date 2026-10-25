@@ -63,7 +63,7 @@ Achievements are not affected; Cyberpunk does not disable achievements for mods.
 ## Troubleshooting
 
 - **Nothing happens.** Check the CET window. *Helper: not running* means you should start the `.ahk` file. *Stopped: …* means the game changed something the mod reads; please open an issue with that message.
-- **Need more detail.** Turn on *Debug log*. The CET console and `AutoDialogPicker.log` then list every menu with its flags and why a line was or wasn't picked. Please include this in bug reports.
+- **Need more detail.** Turn on *Debug log*. The CET console and `AutoDialogPicker.log` then list every menu with its flags, the details behind each line (lifepath, skill check, cost), the tracked quest, and why a line was or wasn't picked. Please include this in bug reports.
 - **The highlight doesn't move.** Make sure the mouse wheel moves the dialogue highlight in your game, or set `Up`/`Down` in `helper-keys.ini` to your dialogue scroll keys.
 
 ## Building
