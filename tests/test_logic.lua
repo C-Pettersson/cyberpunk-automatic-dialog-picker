@@ -66,10 +66,30 @@ check("pick first with no plain story -> reason", select(2, Logic.decide(h, SKIP
 h = hub({ { questImportant = true, hasIcon = true, text = "Whatcha got?" }, { questImportant = true, text = "I'm good, thanks." },
           { questImportant = true, blueline = true } })
 check("pick first skips shop icon", Logic.decide(h, SKIP_FIRST), 2)
--- ...but still takes an icon line when every plain line has one
-h = hub({ { questImportant = true, hasIcon = true, text = "[Stand] Something I gotta take care of first." },
-          { questImportant = true, hasIcon = true, text = "[Stand] Let's go." } })
-check("pick first, all icons", Logic.decide(h, SKIP_FIRST), 1)
+-- ...and never takes an action, even when every story line is one
+h = hub({ { questImportant = true, hasIcon = true, hasTag = true, text = "[Stand] Something I gotta take care of first." },
+          { questImportant = true, hasIcon = true, hasTag = true, text = "[Stand] Let's go." } })
+check("pick first, all actions -> menu", Logic.decide(h, SKIP_FIRST), nil)
+h = hub({ { questImportant = true, hasTag = true, text = "[Shoot Royce] I've had enough." }, { questImportant = true, text = "Easy now." } })
+check("pick first skips [Shoot Royce]", Logic.decide(h, SKIP_FIRST), 2)
+
+-- an action story line next to anything else you could press is left to you
+h = hub({ { questImportant = true, hasTag = true, text = "[Draw weapon]" }, { text = "Relax, Royce." } })
+check("[Draw weapon] beside a line -> menu (skip)", Logic.decide(h, SKIP), nil)
+h = hub({ { questImportant = true, hasTag = true, text = "[Shoot Royce] I've had enough." },
+          { hasTag = true, text = "[Lower weapon]" } })
+check("[Shoot Royce] beside an action -> menu (include)", Logic.decide(h, INC), nil)
+check("[Shoot Royce] beside an action -> menu (skip)", Logic.decide(h, SKIP), nil)
+-- ...but taken when it is the only thing on offer
+h = hub({ { questImportant = true, hasIcon = true, hasTag = true, text = "[Get in]" } })
+check("lone [Get in]", Logic.decide(h, SKIP), 1)
+
+-- timed choices are always left to you, even a lone spoken line
+h = hub({ { questImportant = true, timed = true, text = "Talk to me." } })
+check("timed -> menu", Logic.decide(h, SKIP), nil)
+check("timed -> reason", select(2, Logic.decide(h, SKIP)), "timed choice")
+h = hub({ { questImportant = true, hasTag = true, timed = true, text = "[Draw weapon]" } })
+check("lone timed [Draw weapon] -> menu", Logic.decide(h, INC), nil)
 
 -- money and illegal lines always leave the menu to the player
 h = hub({ { questImportant = true, pay = true }, {} })
