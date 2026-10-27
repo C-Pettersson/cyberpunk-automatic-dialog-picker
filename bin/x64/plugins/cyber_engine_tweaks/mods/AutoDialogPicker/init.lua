@@ -605,7 +605,12 @@ local function drawNotice(text)
 end
 
 local function drawSettings()
-    ImGui.SetNextWindowSize(430, 0, ImGuiCond.FirstUseEver)
+    ImGui.SetNextWindowSize(560, 0, ImGuiCond.FirstUseEver)
+    -- CET remembers the window size, so a minimum keeps the Custom rules
+    -- readable even when an earlier version left the window narrow.
+    if ImGui.SetNextWindowSizeConstraints then
+        ImGui.SetNextWindowSizeConstraints(520, 0, 10000, 10000)
+    end
     if ImGui.Begin(MOD_NAME .. " " .. VERSION) then
         local changed = false
         local v, c
@@ -620,7 +625,8 @@ local function drawSettings()
         if settings.mode == Logic.MODE_CUSTOM then
             for _, rule in ipairs(Logic.RULES) do
                 local k = "custom_" .. rule.key
-                ImGui.Text(rule.label)
+                ImGui.TextWrapped(rule.label)
+                if ImGui.SetNextItemWidth then ImGui.SetNextItemWidth(-1) end   -- full width
                 idx, c = ImGui.Combo("##" .. k, settings[k] - 1, rule.options, #rule.options)
                 if c then settings[k] = idx + 1; changed = true end
             end
