@@ -2,6 +2,8 @@
 
 Plays conversations for you, so they run like cutscenes instead of stopping at every dialogue menu. A Cyberpunk 2077 take on the Witcher 3 mod [Automatic dialog picker](https://github.com/Aelto/tw3-automatic-dialog-picker) by Aelto.
 
+![The Auto Dialog Picker settings window in the CET overlay, set to Custom mode](docs/settings-window.png)
+
 ## What it does
 
 When a dialogue menu appears, the mod waits a moment and then picks a line, depending on the mode:
