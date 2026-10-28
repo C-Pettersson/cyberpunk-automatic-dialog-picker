@@ -373,8 +373,20 @@ local function trackedQuest()
     return table.concat(ids, "/") .. (title and (" (title: " .. title .. ")") or "")
 end
 
+-- "Elevator (LocKey#45704)": speakers without a name of their own come as a
+-- localization key; show the text it stands for, keeping the key.
+local function menuTitle(hub)
+    local title = hub.title or ""
+    if not title:find("^LocKey#") then return title end
+    local ok, text = pcall(GetLocalizedText, title)
+    if ok and type(text) == "string" and text ~= "" and text ~= title then
+        return text .. " (" .. title .. ")"
+    end
+    return title
+end
+
 local function logMenuDetails(hub, choices, sel)
-    log("menu '" .. (hub.title or "") .. "', selected " .. tostring(sel))
+    log("menu '" .. menuTitle(hub) .. "', selected " .. tostring(sel))
     local ok, quest = pcall(trackedQuest)
     log("  quest: " .. (ok and quest or ("unreadable: " .. tostring(quest))))
     for _, c in ipairs(choices) do

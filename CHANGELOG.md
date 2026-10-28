@@ -10,6 +10,7 @@
 - New **Custom** mode: choose what happens in each situation (optional lines, optional lifepath lines, one story line, one action story line, several story lines, several with a lifepath line or a passed skill check, timed choices). *Customize these rules* starts from the mode you are in. Lifepath and skill-check lines are recognised from the game's own data (for example `LifePaths.Corporate`, `PlayerBuilds.Netrunner`).
 - The *Switch mode* hotkey cycles through Include optional, Skip optional and Custom.
 - The debug log shows each line's caption parts (lifepath, skill check, icon) and the tracked quest.
+- The debug log shows speaker names that the game stores as a `LocKey#` number as text, with the number after it.
 
 ## 1.0.0
 
